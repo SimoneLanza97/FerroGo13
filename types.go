@@ -1,26 +1,26 @@
 package main 
 
 type Products struct {
-	id              int   		`json:"id"`
-	nome            string  	`json:"nome"`
-	riferimento     *string 	`json:"riferimento"`
-	categoria       string  	`json:"categoria"`
-	prezzotaxescl   float64 	`json:"prezzo_tax_escl"`
-	prezzotaxincl   float64 	`json:"prezzo_tax_incl"`
-	quantita        int     	`json:"quantita"`
-	stato           bool    	`json:"stato"`
-	immagine        *string 	`json:"immagine"`
-	riepilogo       *string 	`json:"riepilogo"`
-	cartaidentita   *string 	`json:"carta_identita"`
-	chisono         *string 	`json:"chi_sono"`
-	luogodinascita  *string 	`json:"luogo_di_nascita"`
-	formazione      *string 	`json:"formazione"`
-	carattereestile *string 	`json:"carattere_e_stile"`
-	gourmet         *string 	`json:"gourmet"`
-	musica          *string 	`json:"musica"`
-	cinema          *string 	`json:"cinema"`
-	annata          *int    	`json:"annata"`
-	premi           *string 	`json:"premi"`
+	Id              int   		`json:"id"`
+	Nome            string  	`json:"nome"`
+	Riferimento     *string 	`json:"riferimento"`
+	Categoria       string  	`json:"categoria"`
+	Prezzotaxescl   float64 	`json:"prezzo_tax_escl"`
+	Prezzotaxincl   float64 	`json:"prezzo_tax_incl"`
+	Quantita        int     	`json:"quantita"`
+	Stato           bool    	`json:"stato"`
+	Immagine        *string 	`json:"immagine"`
+	Riepilogo       *string 	`json:"riepilogo"`
+	Cartaidentita   *string 	`json:"carta_identita"`
+	Chisono         *string 	`json:"chi_sono"`
+	Luogodinascita  *string 	`json:"luogo_di_nascita"`
+	Formazione      *string 	`json:"formazione"`
+	Carattereestile *string 	`json:"carattere_e_stile"`
+	Gourmet         *string 	`json:"gourmet"`
+	Musica          *string 	`json:"musica"`
+	Cinema          *string 	`json:"cinema"`
+	Annata          *int    	`json:"annata"`
+	Premi           *string 	`json:"premi"`
 }
 type Carts  struct {
     ID          int      `json:"id"`
@@ -48,4 +48,17 @@ type CreateUserReq struct {
     Email                   string        `json:"email"`
     Password                string        `json:"password"`
 
+}
+
+func NewUser(nome, cognome, email, password) (*Users, error) {
+	encpw, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil{
+			return nil, err
+	}
+	return &Users{
+		Nome:		Nome,
+		Cognome:	Cognome,
+		Email:		Email,
+		Password:	string(encpw)
+	},nil
 }

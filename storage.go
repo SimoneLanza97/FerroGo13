@@ -4,16 +4,17 @@ import (
 	"database/sql"
 	_"github.com/lib/pq"
     "os"
+    "fmt"
 )
 type Storage interface {
     // Metodo per recuperare tutti i prodotti
-    GetProducts() ([]Products, error)
+    GetProducts() ([]*Products, error)
 	// Metodo per recuperare un prodotto dall ID 
 	GetProdById(int) (*Products, error)
     // Metodo per creare un nuovo utente
     CreateUser(*Users) error
     // Metodo per autenticare un utente
-    AuthenticateUser(username, password string) (bool, error)
+    // AuthenticateUser(username, password string) (bool, error)
 }
 
 type PostgresStore struct {
@@ -45,7 +46,7 @@ func NewPostgresStore() (*PostgresStore, error) {
 }
 
 
-func (s *PostgresStore) GetProducts() ([]Products, error) {
+func (s *PostgresStore) GetProducts() ([]*Products, error) {
     // Query per selezionare tutti i prodotti dalla tabella products
     rows, err := s.db.Query(`SELECT * FROM products`)
     if err != nil {
@@ -54,7 +55,7 @@ func (s *PostgresStore) GetProducts() ([]Products, error) {
     defer rows.Close()
 
     // Slice per memorizzare i prodotti
-    products := []Products
+    products := []*Products{}
 
     // Itera sui risultati della query
     for rows.Next() {
@@ -69,8 +70,8 @@ func (s *PostgresStore) GetProducts() ([]Products, error) {
 }
 
 
-func(s *NewPostgresStore) GetProdById(id int) (*Products, error){
-	query,err := s.db.Query(`SELECT * FROM products WHERE id = $1`, id)
+func(s *PostgresStore) GetProdById(id int) (*Products, error){
+	rows,err := s.db.Query(`SELECT * FROM products WHERE id = $1`, id)
 	if err != nil{
 		return nil, err
 	}
@@ -81,7 +82,7 @@ func(s *NewPostgresStore) GetProdById(id int) (*Products, error){
 }
 
 
-func(s *NewPostgresStore) CreateUser(user *User) error{
+func(s *PostgresStore) CreateUser(user *Users) error{
 	query := `insert into Users 
 	(nome, cognome, email, password)
 	values($1, $2, $3, $4)`
@@ -101,26 +102,26 @@ func(s *NewPostgresStore) CreateUser(user *User) error{
 func scanintoProd(rows *sql.Rows) (*Products, error){
 	products := new(Products)
 	err := rows.Scan(
-		&prod.ID,
-        &prod.Nome,
-        &prod.Riferimento,
-        &prod.Categoria,
-        &prod.PrezzoTaxEscl,
-        &prod.PrezzoTaxIncl,
-        &prod.Quantita,
-        &prod.Stato,
-        &prod.Immagine,
-        &prod.Riepilogo,
-        &prod.CartaIdentita,
-        &prod.ChiSono,
-        &prod.LuogoDiNascita,
-        &prod.Formazione,
-        &prod.CarattereEstile,
-        &prod.Gourmet,
-        &prod.Musica,
-        &prod.Cinema,
-        &prod.Annata,
-        &prod.Premi)
+		&products.id,
+        &products.nome,
+        &products.riferimento,
+        &products.categoria,
+        &products.prezzotaxescl,
+        &products.prezzotaxincl,
+        &products.quantita,
+        &products.stato,
+        &products.immagine,
+        &products.riepilogo,
+        &products.cartaidentita,
+        &products.chisono,
+        &products.luogodinascita,
+        &products.formazione,
+        &products.carattereestile,
+        &products.gourmet,
+        &products.musica,
+        &products.cinema,
+        &products.annata,
+        &products.premi)
         
-	return products, nil 
+	return products, err
 }

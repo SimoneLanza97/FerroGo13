@@ -12,14 +12,16 @@ import (
 // struct del server API ha un campo listenAddr che sarà una stringa 
 type APIServer struct {
 	listenAddr string
+	store Storage
 }
 
 
 /* funzione che prende in input una stringa che dirà l'indirizzo al 
 quale mettersi in ascolto (es: "127.0.0.1:8080") */ 
-func NewAPIServer(listenAddr string) *APIServer{
+func NewAPIServer(listenAddr string,store Storage) *APIServer{
 	return &APIServer{
 		listenAddr: listenAddr,
+		store: store,
 	}
 }
 
@@ -30,24 +32,42 @@ func (s *APIServer) Run() {
 	apiRouter := router.PathPrefix("/api").Subrouter()
 	
 	apiRouter.HandleFunc("/products", makeHTTPHandleFunc(s.handleGetProducts)).Methods("GET")
-	apiRouter.HandleFunc("/getProdotti/{id}", makeHTTPHandleFunc(s.handleGetProdById)).Methods("GET")
+	// apiRouter.HandleFunc("/getProdotti/{id}", makeHTTPHandleFunc(s.handleGetProdById)).Methods("GET")
 	apiRouter.HandleFunc("/store/user", makeHTTPHandleFunc(s.handleCreateUser)).Methods("POST")
-	apiRouter.HandleFunc("/authenticate", makeHTTPHandleFunc(s.handleAuthUser)).Methods("POST")
+	// apiRouter.HandleFunc("/authenticate", makeHTTPHandleFunc(s.handleAuthUser)).Methods("POST")
 	
-	log.Println("JSON API Server running on port", s.listenAddr)
+	log.Println("JSON API Server running on port:", s.listenAddr)
 	http.ListenAndServe(s.listenAddr, router)
 }
 
 
-func (s *APIServer) handleGetProducts(w http.ResponseWriter, r *http.Request) error{
-	return nil
+func (s *APIServer) handleGetProducts(w http.ResponseWriter, r *http.Request) {
+	products, err := s.store.GetProducts()
+	if err != nil {
+		return err
+	}
+	return WriteJSON(w, http.StatusOK, products)
 }
+
+
 func (s *APIServer) handleCreateUser(w http.ResponseWriter, r *http.Request) error{
-	return nil
+	req := new(CreateUserReq)
+	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+		return err
+	}
+	user, err := NewUser(req.Nome, req.Cognome, req.Email, req.Password)
+	if err != nil{
+		return err
+	}
+	if err != s.store.CreateUser(user); err != nil {
+		return err 
+	}
+	return WriteJSON(w, http.StatusOK, user)
 }
-func (s *APIServer) handleAuthUser(w http.ResponseWriter, r *http.Request) error{
-	return nil
-}
+
+// func (s *APIServer) handleAuthUser(w http.ResponseWriter, r *http.Request) error{
+	// return nil
+// }
 func (s *APIServer) handleGetProdById(w http.ResponseWriter, r *http.Request) error{
 	return nil
 }

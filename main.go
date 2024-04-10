@@ -1,7 +1,10 @@
 package main 
+import (
+	"log"
+)
 
 func main(){
-	store,err = NewPostgresStore()
+	store,err := NewPostgresStore()
 	if err != nil{
 		log.Fatal(err)
 	}
