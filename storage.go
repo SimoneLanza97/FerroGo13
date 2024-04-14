@@ -14,7 +14,7 @@ type Storage interface {
     // Metodo per creare un nuovo utente
     CreateUser(*Users) error
     // Metodo per autenticare un utente
-    // AuthenticateUser(username, password string) (bool, error)
+    GetUserByEmail(string) (*Users, error)
 }
 
 type PostgresStore struct {
@@ -99,29 +99,59 @@ func(s *PostgresStore) CreateUser(user *Users) error{
 }
 
 
+func(s *PostgresStore) GetUserByEmail(email string) (*Users, error){
+    rows, err := s.db.Query("select * from users where email = $1", email)
+    if err != nil {
+        return nil, err
+    }
+    for rows.Next(){
+        return scanIntoUser(rows)
+    }
+    return nil, fmt.Errorf("account whit email [%d] not found", email)
+}
+
 func scanintoProd(rows *sql.Rows) (*Products, error){
 	products := new(Products)
 	err := rows.Scan(
-		&products.id,
-        &products.nome,
-        &products.riferimento,
-        &products.categoria,
-        &products.prezzotaxescl,
-        &products.prezzotaxincl,
-        &products.quantita,
-        &products.stato,
-        &products.immagine,
-        &products.riepilogo,
-        &products.cartaidentita,
-        &products.chisono,
-        &products.luogodinascita,
-        &products.formazione,
-        &products.carattereestile,
-        &products.gourmet,
-        &products.musica,
-        &products.cinema,
-        &products.annata,
-        &products.premi)
+		&products.Id,
+        &products.Nome,
+        &products.Riferimento,
+        &products.Categoria,
+        &products.Prezzotaxescl,
+        &products.Prezzotaxincl,
+        &products.Quantita,
+        &products.Stato,
+        &products.Immagine,
+        &products.Riepilogo,
+        &products.Cartaidentita,
+        &products.Chisono,
+        &products.Luogodinascita,
+        &products.Formazione,
+        &products.Carattereestile,
+        &products.Gourmet,
+        &products.Musica,
+        &products.Cinema,
+        &products.Annata,
+        &products.Premi,
+        &products.CreatedAt,
+        &products.UpdatedAt)
         
 	return products, err
+}
+func scanIntoUser(rows *sql.Rows) (*Users, error){
+    users := new(Users)
+    err := rows.Scan(
+        &users.Id,
+        &users.Nome,
+        &users.Cognome,
+        &users.Email,
+        &users.Password,
+        &users.Telefono,
+        &users.Indirizzo_fattura,
+        &users.Indirizzo_spedizione,
+        &users.Api_token,
+        &users.Remember_token,
+        &users.CreatedAt,
+        &users.UpdatedAt)
+    return users, err
 }

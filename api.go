@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	// "fmt"
+	"fmt"
 	"net/http"
 	"github.com/gorilla/mux"
+	jwt "github.com/golang-jwt/jwt/v4"
 	"log"
+	"strconv"
+	"os"
 )
 
 
@@ -32,16 +35,34 @@ func (s *APIServer) Run() {
 	apiRouter := router.PathPrefix("/api").Subrouter()
 	
 	apiRouter.HandleFunc("/products", makeHTTPHandleFunc(s.handleGetProducts)).Methods("GET")
-	// apiRouter.HandleFunc("/getProdotti/{id}", makeHTTPHandleFunc(s.handleGetProdById)).Methods("GET")
+	apiRouter.HandleFunc("/getProdotti/{id}", makeHTTPHandleFunc(s.handleGetProdById)).Methods("GET")
 	apiRouter.HandleFunc("/store/user", makeHTTPHandleFunc(s.handleCreateUser)).Methods("POST")
-	// apiRouter.HandleFunc("/authenticate", makeHTTPHandleFunc(s.handleAuthUser)).Methods("POST")
+	apiRouter.HandleFunc("/authenticate", makeHTTPHandleFunc(s.handleAuthUser)).Methods("POST")
+
+	// Swagger UI 
+	swaggerDir := "/myswagger/" // Assicurati che questo percorso sia corretto
+	router.PathPrefix("/swagger/").Handler(http.StripPrefix("/swagger/", http.FileServer(http.Dir(swaggerDir))))
+
 	
 	log.Println("JSON API Server running on port:", s.listenAddr)
 	http.ListenAndServe(s.listenAddr, router)
 }
 
 
-func (s *APIServer) handleGetProducts(w http.ResponseWriter, r *http.Request) {
+// handleGetProducts gets all products
+// swagger:operation GET /api/products getProducts
+// ---
+// summary: Retrieves a list of products.
+// produces:
+// - application/json
+// responses:
+//   '200':
+//     description: successful operation
+//     schema:
+//       type: array
+//       items:
+//         $ref: '#/definitions/Product'
+func (s *APIServer) handleGetProducts(w http.ResponseWriter, r *http.Request) error {
 	products, err := s.store.GetProducts()
 	if err != nil {
 		return err
@@ -49,8 +70,29 @@ func (s *APIServer) handleGetProducts(w http.ResponseWriter, r *http.Request) {
 	return WriteJSON(w, http.StatusOK, products)
 }
 
-
-func (s *APIServer) handleCreateUser(w http.ResponseWriter, r *http.Request) error{
+// handleCreateUser creates a new user
+// swagger:operation POST /api/store/user createUser
+// ---
+// summary: Creates a new user.
+// consumes:
+// - application/json
+// parameters:
+// - in: body
+//   name: user
+//   description: The user to create.
+//   required: true
+//   schema:
+//     $ref: '#/definitions/CreateUserReq'
+// produces:
+// - application/json
+// responses:
+//   '200':
+//     description: successful operation
+//     schema:
+//       $ref: '#/definitions/User'
+//   '400':
+//     description: Invalid user supplied
+func (s *APIServer) handleCreateUser(w http.ResponseWriter, r *http.Request) error { 
 	req := new(CreateUserReq)
 	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
 		return err
@@ -59,17 +101,110 @@ func (s *APIServer) handleCreateUser(w http.ResponseWriter, r *http.Request) err
 	if err != nil{
 		return err
 	}
-	if err != s.store.CreateUser(user); err != nil {
+	if err := s.store.CreateUser(user); err != nil {
 		return err 
 	}
 	return WriteJSON(w, http.StatusOK, user)
 }
 
-// func (s *APIServer) handleAuthUser(w http.ResponseWriter, r *http.Request) error{
-	// return nil
-// }
+
+func createJWT(user *Users) (string, error) {
+	claims := &jwt.MapClaims{
+		"expiresAt":     15000,
+		"accountNumber": user.Email,
+	}
+
+	secret := os.Getenv("JWT_SECRET")
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	return token.SignedString([]byte(secret))
+}
+
+
+// handleAuthUser authenticates a user and returns a JWT token
+// swagger:operation POST /api/authenticate authenticateUser
+// ---
+// summary: Authenticates user and returns a JWT token.
+// consumes:
+// - application/json
+// parameters:
+// - in: body
+//   name: login
+//   description: The login details for authentication.
+//   required: true
+//   schema:
+//     $ref: '#/definitions/LoginRequest'
+// produces:
+// - application/json
+// responses:
+//   '200':
+//     description: successful operation
+//     schema:
+//       $ref: '#/definitions/LoginResponse'
+//   '401':
+//     description: Authentication failed
+func (s *APIServer) handleAuthUser(w http.ResponseWriter, r *http.Request) error{
+	if r.Method != "POST" {
+		return fmt.Errorf("Method is not allowed %s", r.Method)
+	}
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return err 
+	}
+	user, err := s.store.GetUserByEmail(string(req.Email))
+	if err != nil {
+		return err
+	}
+	if !user.ValidPassword(req.Password){
+		return fmt.Errorf("not authenticated")
+	}
+	token, err := createJWT(user)
+	if err != nil {
+		return err 
+	}
+	resp := LoginResponse{
+		Email: 	user.Email,
+		Token:	token,
+	}
+	return WriteJSON(w, http.StatusOK, resp)
+}
+
+
+// handleGetProdById gets a single product by id
+// swagger:operation GET /api/getProdotti/{id} getProductById
+// ---
+// summary: Retrieves a product by its ID.
+// parameters:
+// - name: id
+//   in: path
+//   description: ID of the product to fetch
+//   required: true
+//   type: integer
+//   format: int64
+// produces:
+// - application/json
+// responses:
+//   '200':
+//     description: successful operation
+//     schema:
+//       $ref: '#/definitions/Product'
+//   '400':
+//     description: Invalid ID supplied
+//   '404':
+//     description: Product not found
 func (s *APIServer) handleGetProdById(w http.ResponseWriter, r *http.Request) error{
-	return nil
+	if r.Method == "GET" {
+		id,err := getID(r)
+		if err != nil {
+			return err
+		}
+		product, err := s.store.GetProdById(id)
+		if err != nil {
+			return err
+		}
+		return WriteJSON(w, http.StatusOK, product)
+	}
+	return fmt.Errorf("method is not allowed %s", r.Method)
 }
 
 
@@ -105,15 +240,11 @@ func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 }
 
 
-// func (s *APIServer) handleAccount(w http.ResponseWriter, r *http.Request) error{
-// 	if r.Method == "GET" {
-// 		return s.handleGetAccount(w, r) 	
-// 	}
-// 	if r.Method == "POST" {
-// 		return s.handleCreateAccount(w, r) 	
-// 	}
-// 	if r.Method == "DELETE" {
-// 		return s.handleDeleteAccount(w, r) 	
-// 	}
-// 	return  fmt.Errorf("method not allowed %s", r.Method)
-// }
+func getID(r *http.Request) (int, error) {
+	idStr := mux.Vars(r)["id"]
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return id, fmt.Errorf("invalid id given %s", idStr)
+	}
+	return id, nil
+}
